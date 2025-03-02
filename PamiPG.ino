@@ -86,6 +86,9 @@ void setup(void){
   pami.afficheur.begin();
   pami.afficheur.displayString("init");
 
+  // pami.gpio.setDebug(true);
+  // pami.radio.setDebug(true);
+
   // On initialise la team et le Pami
   team   = pami.jumper.getTeam();
   pamiNb = pami.jumper.getPami();
@@ -118,7 +121,6 @@ void setup(void){
 
 
 void loop(void){
-
   displayStatus(); // On affiche le Status sur la console pour le debug
 
   // En fonction du status, on appelle la fonction correspondant à l'étape
@@ -243,16 +245,20 @@ t_radioOrder gestionRadio( void ) {
 // Cette routine permet de gérer les claps
 void gestionClap( void ) {
   static short lastValue = 0;
-  static unsigned long  nextTime = millis()+PERIOD_GESTION_BRAS;
+  static unsigned long nextTime = millis()+PERIOD_GESTION_BRAS;
+  static bool resetBrasDone = false;
 
   // On ne gére les claps que toutes les PERIOD_GESTION_BRAS ms
   if( millis() < nextTime) return;
+  nextTime += PERIOD_GESTION_BRAS;
 
   // S'il n'y a pas de clap en cours, on remet les bras au repos
   if( !flagClap ) {
+    if(resetBrasDone == true) return;
     pami.gpio.set(GPIO_BRAS_GAUCHE, DEFAULT_BRAS_ANGLE);
     pami.gpio.set(GPIO_BRAS_DROIT,  DEFAULT_BRAS_ANGLE);
     lastValue = DEFAULT_BRAS_ANGLE;
+    resetBrasDone = true;
     return;
   }
   
@@ -261,7 +267,7 @@ void gestionClap( void ) {
   pami.gpio.set(GPIO_BRAS_GAUCHE, DEFAULT_BRAS_ANGLE - lastValue);
   pami.gpio.set(GPIO_BRAS_DROIT,  DEFAULT_BRAS_ANGLE + lastValue);
 
-  nextTime += PERIOD_GESTION_BRAS;
+  resetBrasDone = false;
 }
 
 // Cette routine permet de gérer le run du PAMI
@@ -271,6 +277,7 @@ void gestionRun() {
 
   // On ne gére les claps que toutes les PERIOD_GESTION_DIRECTION ms
   if( millis() < nextTime) return;
+  nextTime += PERIOD_GESTION_DIRECTION;
 
   if( !runPami ) {
     pami.moteur.moteurDroit(0);
@@ -279,17 +286,19 @@ void gestionRun() {
 
   pami.moteur.moteurDroit(VITESSE_MOTEUR);
   anglePami = pami.gyro.getAngle();
-  if( anglePami < 0 ) {
-    pami.gpio.set(GPIO_DIRECTION, DEFAULT_DIRECTION_ANGLE-3);
-  }
-  if( anglePami > 0 ) {
-    pami.gpio.set(GPIO_DIRECTION, DEFAULT_DIRECTION_ANGLE+3);
-  }
-  if( anglePami == 0 ) {
-    pami.gpio.set(GPIO_DIRECTION, DEFAULT_DIRECTION_ANGLE);
-  }
+  // if( anglePami < 0 ) {
+  //   pami.gpio.set(GPIO_DIRECTION, DEFAULT_DIRECTION_ANGLE-3);
+  // }
+  // if( anglePami > 0 ) {
+  //   pami.gpio.set(GPIO_DIRECTION, DEFAULT_DIRECTION_ANGLE+3);
+  // }
+  // if( anglePami == 0 ) {
+  //   pami.gpio.set(GPIO_DIRECTION, DEFAULT_DIRECTION_ANGLE);
+  // }
 
-  nextTime += PERIOD_GESTION_DIRECTION;
+  pami.gpio.set(GPIO_DIRECTION, DEFAULT_DIRECTION_ANGLE+anglePami);
+
+
 }
 
 
