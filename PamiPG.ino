@@ -11,9 +11,9 @@
 #define DUREE_WAIT_TO_RUN_PAMI2  70000 // Durée d'attente avant de partir pour le PAMI 2 (en ms)
 #define DUREE_WAIT_TO_RUN_PAMI3  70000 // Durée d'attente avant de partir pour le PAMI 3 (en ms)
 
-#define DUREE_RUN_PAMI1  2000   // Durée de mouvement pour le PAMI 1 (en ms)
-#define DUREE_RUN_PAMI2  3000   // Durée de mouvement pour le PAMI 2 (en ms)
-#define DUREE_RUN_PAMI3  4000   // Durée de mouvement pour le PAMI 3 (en ms)
+// #define DUREE_RUN_PAMI1  2000   // Durée de mouvement pour le PAMI 1 (en ms)
+// #define DUREE_RUN_PAMI2  3000   // Durée de mouvement pour le PAMI 2 (en ms)
+// #define DUREE_RUN_PAMI3  5000   // Durée de mouvement pour le PAMI 3 (en ms)
 
 
 #else
@@ -22,11 +22,12 @@
 #define DUREE_WAIT_TO_RUN_PAMI2  8000 // Durée d'attente avant de partir pour le PAMI 2 (en ms)
 #define DUREE_WAIT_TO_RUN_PAMI3  8000 // Durée d'attente avant de partir pour le PAMI 3 (en ms)
 
-#define DUREE_RUN_PAMI1  3000   // Durée de mouvement pour le PAMI 1 (en ms)
-#define DUREE_RUN_PAMI2  3000   // Durée de mouvement pour le PAMI 2 (en ms)
-#define DUREE_RUN_PAMI3  3000   // Durée de mouvement pour le PAMI 3 (en ms)
-
 #endif
+
+#define DUREE_RUN_PAMI1  2000   // Durée de mouvement pour le PAMI 1 (en ms)
+#define DUREE_RUN_PAMI2  5000   // Durée de mouvement pour le PAMI 2 (en ms)
+#define DUREE_RUN_PAMI3  7000   // Durée de mouvement pour le PAMI 3 (en ms)
+
 
 LibPami pami;
 
@@ -169,9 +170,10 @@ void pamiWaitStart(void) {
   flagClap = false;
   recalibrationDone = false;
 
-  if( gestionRadio() == RADIO_START ) {
-    switchToSayOkStart();
-  }
+  // if( gestionRadio() == RADIO_START ) {
+  //   switchToSayOkStart();
+  // }
+switchToWaitToRun();
 }
 
 
