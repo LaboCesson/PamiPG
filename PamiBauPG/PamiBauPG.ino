@@ -19,10 +19,9 @@
 
 #endif
 
-#define DUREE_RUN_PAMI1  2000   // Durée de mouvement pour le PAMI 1 (en ms)
-// #define DUREE_RUN_PAMI2  5000   // Durée de mouvement pour le PAMI 2 (en ms)
-#define DUREE_RUN_PAMI2  5000   // Durée de mouvement pour le PAMI 2 (en ms)
-#define DUREE_RUN_PAMI3  7000   // Durée de mouvement pour le PAMI 3 (en ms)
+#define DUREE_RUN_PAMI1  4000   // Durée de mouvement pour le PAMI 1 (en ms)
+#define DUREE_RUN_PAMI2  3500   // Durée de mouvement pour le PAMI 2 (en ms)
+#define DUREE_RUN_PAMI3  2500   // Durée de mouvement pour le PAMI 3 (en ms)
 
 
 LibPami pami;
@@ -89,6 +88,7 @@ void setup(void){
   // pami.radio.setDebug(true);
 
   // On initialise la team et le Pami
+  team   = pami.jumper.getTeam();
   pamiNb = pami.jumper.getPami();
   Serial.print(" Team="); Serial.print(team);
   Serial.print(" Pami="); Serial.println(pamiNb);
@@ -105,8 +105,8 @@ void setup(void){
 
   // On configure les GPIO
   if( team == PAMI_TEAM_A ) {
-    pami.gpio.configure(GPIO_LED_GAUCHE, PAMI_GPIO_OUTPUT, 0);
-    pami.gpio.configure(GPIO_LED_DROITE, PAMI_GPIO_OUTPUT, 0);
+    pami.gpio.configure(GPIO_LED_GAUCHE, PAMI_GPIO_OUTPUT, 1);
+    pami.gpio.configure(GPIO_LED_DROITE, PAMI_GPIO_OUTPUT, 1);
     pami.gpio.configure(GPIO_BOULE_FACETTE, PAMI_GPIO_PWM, DEFAULT_FACETTE_ANGLE);
     pami.gpio.configure(GPIO_DIRECTION_TEAM_A, PAMI_GPIO_PWM, DEFAULT_DIRECTION_ANGLE);
     gpioDirection = GPIO_DIRECTION_TEAM_A;
