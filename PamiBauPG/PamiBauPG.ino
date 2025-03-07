@@ -19,9 +19,15 @@
 
 #endif
 
-#define DUREE_RUN_PAMI1  4000   // Durée de mouvement pour le PAMI 1 (en ms)
-#define DUREE_RUN_PAMI2  3500   // Durée de mouvement pour le PAMI 2 (en ms)
-#define DUREE_RUN_PAMI3  2500   // Durée de mouvement pour le PAMI 3 (en ms)
+// Durée de run des Pamis de la team A => Boule
+#define DUREE_RUN_PAMI1_TEAM_A  4000   // Durée de mouvement pour le PAMI 1 (en ms)
+#define DUREE_RUN_PAMI2_TEAM_A  3500   // Durée de mouvement pour le PAMI 2 (en ms)
+#define DUREE_RUN_PAMI3_TEAM_A  2500   // Durée de mouvement pour le PAMI 3 (en ms)
+
+// Durée de run des Pamis de la team B => Bras
+#define DUREE_RUN_PAMI1_TEAM_B  4500   // Durée de mouvement pour le PAMI 1 (en ms)
+#define DUREE_RUN_PAMI2_TEAM_B  3200   // Durée de mouvement pour le PAMI 2 (en ms)
+#define DUREE_RUN_PAMI3_TEAM_B  2500   // Durée de mouvement pour le PAMI 3 (en ms)
 
 
 LibPami pami;
@@ -42,6 +48,7 @@ unsigned char pamiNb;
 #define GPIO_LED_DROITE       PAMI_GPIO_2
 #define GPIO_BOULE_FACETTE    PAMI_GPIO_3
 #define DEFAULT_FACETTE_ANGLE 90    // L'angle au repos en degré de la boule à facette
+#define MAX_BRAS_BOULE        45    // Angle maximum de rotation de la boule
 #define PERIOD_GESTION_BOULE  500   // Période d'oscillation de la boule en ms
 
 bool flagActivity = false; // Indique si l'activité Bras ou Boule doit être activée
@@ -94,10 +101,19 @@ void setup(void){
   Serial.print(" Pami="); Serial.println(pamiNb);
 
   // En fonction du PAMI, les durées d'attentes et de run sont différentes
-  switch(pamiNb) {
-    case PAMI_NB_1 : dureeWaitToRun = millis()+DUREE_WAIT_TO_RUN_PAMI1; dureeRunPami = DUREE_RUN_PAMI1; break;
-    case PAMI_NB_2 : dureeWaitToRun = millis()+DUREE_WAIT_TO_RUN_PAMI2; dureeRunPami = DUREE_RUN_PAMI2; break;
-    case PAMI_NB_3 : dureeWaitToRun = millis()+DUREE_WAIT_TO_RUN_PAMI3; dureeRunPami = DUREE_RUN_PAMI3; break;
+  if( team == PAMI_TEAM_A ) {
+    switch(pamiNb) {
+      case PAMI_NB_1 : dureeWaitToRun = millis()+DUREE_WAIT_TO_RUN_PAMI1; dureeRunPami = DUREE_RUN_PAMI1_TEAM_A; break;
+      case PAMI_NB_2 : dureeWaitToRun = millis()+DUREE_WAIT_TO_RUN_PAMI2; dureeRunPami = DUREE_RUN_PAMI2_TEAM_A; break;
+      case PAMI_NB_3 : dureeWaitToRun = millis()+DUREE_WAIT_TO_RUN_PAMI3; dureeRunPami = DUREE_RUN_PAMI3_TEAM_A; break;
+    }
+  }
+  else {
+    switch(pamiNb) {
+      case PAMI_NB_1 : dureeWaitToRun = millis()+DUREE_WAIT_TO_RUN_PAMI1; dureeRunPami = DUREE_RUN_PAMI1_TEAM_B; break;
+      case PAMI_NB_2 : dureeWaitToRun = millis()+DUREE_WAIT_TO_RUN_PAMI2; dureeRunPami = DUREE_RUN_PAMI2_TEAM_B; break;
+      case PAMI_NB_3 : dureeWaitToRun = millis()+DUREE_WAIT_TO_RUN_PAMI3; dureeRunPami = DUREE_RUN_PAMI3_TEAM_B; break;
+    }
   }
 
   // On configure le moteur
@@ -110,11 +126,21 @@ void setup(void){
     pami.gpio.configure(GPIO_BOULE_FACETTE, PAMI_GPIO_PWM, DEFAULT_FACETTE_ANGLE);
     pami.gpio.configure(GPIO_DIRECTION_TEAM_A, PAMI_GPIO_PWM, DEFAULT_DIRECTION_ANGLE);
     gpioDirection = GPIO_DIRECTION_TEAM_A;
+
+    // on signale le démarrage
+    pami.gpio.set(GPIO_BOULE_FACETTE, DEFAULT_FACETTE_ANGLE+MAX_BRAS_BOULE);
+    delay(500);
+    pami.gpio.set(GPIO_BOULE_FACETTE, DEFAULT_FACETTE_ANGLE);
   } else {
     pami.gpio.configure(GPIO_BRAS_GAUCHE,      PAMI_GPIO_PWM, DEFAULT_BRAS_ANGLE);
     pami.gpio.configure(GPIO_BRAS_DROIT,       PAMI_GPIO_PWM, DEFAULT_BRAS_ANGLE);
     pami.gpio.configure(GPIO_DIRECTION_TEAM_B, PAMI_GPIO_PWM, DEFAULT_DIRECTION_ANGLE);
     gpioDirection = GPIO_DIRECTION_TEAM_B;
+
+    // on signale le démarrage
+    pami.gpio.set(GPIO_BRAS_GAUCHE, DEFAULT_BRAS_ANGLE-MAX_BRAS_ANGLE);
+    delay(500);
+    pami.gpio.set(GPIO_BRAS_GAUCHE, DEFAULT_BRAS_ANGLE);
   }
 
   // On initialise le gyroscope
@@ -251,12 +277,12 @@ void gestionBoule( void ) {
   if( lastValue == 0 ) {
     pami.gpio.set(GPIO_LED_GAUCHE, 0);
     pami.gpio.set(GPIO_LED_DROITE, 1);
-    pami.gpio.set(GPIO_BOULE_FACETTE, DEFAULT_FACETTE_ANGLE+45);
+    pami.gpio.set(GPIO_BOULE_FACETTE, DEFAULT_FACETTE_ANGLE+MAX_BRAS_BOULE);
     lastValue = 1;
   } else {
     pami.gpio.set(GPIO_LED_GAUCHE, 1);
     pami.gpio.set(GPIO_LED_DROITE, 0);
-    pami.gpio.set(GPIO_BOULE_FACETTE, DEFAULT_FACETTE_ANGLE-45);
+    pami.gpio.set(GPIO_BOULE_FACETTE, DEFAULT_FACETTE_ANGLE-MAX_BRAS_BOULE);
     lastValue = 0;
   }
 }
