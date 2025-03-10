@@ -3,13 +3,13 @@
 #include "LibPami.h"
 // #include "MemoryFree.h"
 
-#define DEBUG_PAMI
+// #define DEBUG_PAMI
 
 #ifndef DEBUG_PAMI
 //============= REGLAGE PAMI CONCOURS =========================
-#define DUREE_WAIT_TO_RUN_PAMI1  70000 // Durée d'attente avant de partir pour le PAMI 1 (en ms)
-#define DUREE_WAIT_TO_RUN_PAMI2  70000 // Durée d'attente avant de partir pour le PAMI 2 (en ms)
-#define DUREE_WAIT_TO_RUN_PAMI3  70000 // Durée d'attente avant de partir pour le PAMI 3 (en ms)
+#define DUREE_WAIT_TO_RUN_PAMI1  85000 // Durée d'attente avant de partir pour le PAMI 1 (en ms)
+#define DUREE_WAIT_TO_RUN_PAMI2  85500 // Durée d'attente avant de partir pour le PAMI 2 (en ms)
+#define DUREE_WAIT_TO_RUN_PAMI3  86000 // Durée d'attente avant de partir pour le PAMI 3 (en ms)
 
 #else
 //============= REGLAGE PAMI DEBUG =========================
