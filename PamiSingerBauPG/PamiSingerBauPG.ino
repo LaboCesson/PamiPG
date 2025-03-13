@@ -3,7 +3,7 @@
 #include "LibPami.h"
 // #include "MemoryFree.h"
 
-#define DEBUG_PAMI
+// #define DEBUG_PAMI
 
 #ifndef DEBUG_PAMI
 //============= REGLAGE PAMI CONCOURS =========================
@@ -34,7 +34,8 @@ bool flagActivity = false; // Indique si l'activité Tambour ou Display doit êt
 // #define VITESSE_MOTEUR_RAPIDE 8
 // #define VITESSE_MOTEUR_LENTE  5
 #define VITESSE_MOTEUR_RAPIDE 7
-#define VITESSE_MOTEUR_LENTE  6
+// #define VITESSE_MOTEUR_LENTE  6
+#define VITESSE_MOTEUR_LENTE  7
 
 #define PAMI_TOURNE_A_GAUCHE  1  // Sur la scene le PAMI tourne à gauche
 #define PAMI_TOURNE_A_DROITE  0  // Sur la scene le PAMI tourne à droite
@@ -182,6 +183,9 @@ void pamiSayReadyToRun(void) {
 void pamiWaitToRun() {
   if( dureeWaitToRun < millis()) {
     pami.afficheur.displayString(" Go ");
+// switchToTurn();
+// return;
+
     switchToOnRoad();
   }
 }
@@ -296,8 +300,8 @@ void pamiWaitEdge() {
     vitesseGauche = VITESSE_MOTEUR_LENTE;
     vitesseDroite = VITESSE_MOTEUR_LENTE;
 
-    if( angle > angleToRun ) vitesseGauche -= 1;
-    if( angle < angleToRun ) vitesseDroite -= 1;
+    if( angle > angleToRun ) { vitesseDroite += 1; vitesseGauche -= 1; }
+    if( angle < angleToRun ) { vitesseDroite -= 1; vitesseGauche += 1; }
     
     gestionRun(vitesseGauche,vitesseDroite);
 
