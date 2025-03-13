@@ -7,7 +7,7 @@
 
 #ifndef DEBUG_PAMI
 //============= REGLAGE PAMI CONCOURS =========================
-#define DUREE_WAIT_TO_RUN_PAMI  70000 // Durée d'attente avant de partir pour le PAMI Singer (en ms)
+#define DUREE_WAIT_TO_RUN_PAMI  85000 // Durée d'attente avant de partir pour le PAMI Singer (en ms)
 
 #else
 //============= REGLAGE PAMI DEBUG =========================
@@ -31,30 +31,28 @@ unsigned char directionVirage;
 bool flagActivity = false; // Indique si l'activité Tambour ou Display doit être activée
 
 // Gestion des moteurs
-#define VITESSE_MOTEUR        80 // Vitesse par défaut des moteurs
+// #define VITESSE_MOTEUR_RAPIDE 8
+// #define VITESSE_MOTEUR_LENTE  5
+#define VITESSE_MOTEUR_RAPIDE 7
+#define VITESSE_MOTEUR_LENTE  6
+
 #define PAMI_TOURNE_A_GAUCHE  1  // Sur la scene le PAMI tourne à gauche
 #define PAMI_TOURNE_A_DROITE  0  // Sur la scene le PAMI tourne à droite
 
-bool runPami = false;
-int  angleToRun = 0;                       // Angle que doit gérer l'asservissement du run
-char vitesseMoteurDefaut = VITESSE_MOTEUR;
+int angleToRun = 0;     // Angle que doit gérer l'asservissement du run
 
 // Gestion de la direction du PAMI pour le virage sur la scene
-#define GPIO_DIRECTION           PAMI_GPIO_1 // Indique si le PAMI doit tourner à droite ou à gauche
+#define GPIO_DIRECTION  PAMI_GPIO_1 // Indique si le PAMI doit tourner à droite ou à gauche
 
-//#define PERIOD_GESTION_DIRECTION 100  // Période d'évaluation de la direction en ms
-#define PERIOD_GESTION_DIRECTION 50   // Période d'évaluation de la direction en ms
-#define PERIOD_GESTION_MONTEE    100  // Période d'évaluation de l'axe Y pour la montée  
+// Gestion du gyroscope
 #define TIME_BEFORE_RECALIBRAGE  2000 // Temps d'attente avant recalibrage en ms
-#define PERIOD_GESTION_TURN      20   // Période d'évaluation du virage en ms
 
 // Gestion de l'ultrason
-#define ULTRASON_MAX_DISTANCE    50   // Distance maximum à détecter
-#define PERIOD_GESTION_ULTRASON  20   // Période d'évaluation de l'ultrason  
-#define ULTRASON_SEUIL_SCENE     60   // Seuil de détection du bord de scene
+#define ULTRASON_MAX_DISTANCE   500  // Distance maximum à détecter
+#define ULTRASON_SEUIL_SCENE     70  // Seuil de détection du bord de scene
 
 // Gestion du display
-#define PERIOD_GESTION_DISPLAY  500   // Période de modification du display en ms
+#define PERIOD_GESTION_DISPLAY  500  // Période de modification du display en ms
 
 // Gestion des états du PAMI
 // Chaque état correspond à une étape du PAMI
@@ -71,9 +69,11 @@ typedef enum {
 t_statusPami statusPami = PAMI_WAIT_RECALIBRAGE;
 
 #define DUREE_SAY_READY_TO_RUN  1000 // Durée de battement des bras pour acquitter son initialisation (en ms)
+#define TIME_OUT_RUN           12000 // Durée du run apres laquelle le robot basculera sur le status PAMI_ARRIVED
 
 unsigned long dureeWaitToRun; // Temps d'attente avant de démarrer le parcours
 unsigned long endStatusTime;  // Fin d'un état en cours avant passage vers le suivant
+unsigned long timeOutGeneral; // Arret general apres TIME_OUT_GENERAL ms
 
 
 void setup(void){
@@ -93,10 +93,10 @@ void setup(void){
 
   // On initialise les durée d'attente
   dureeWaitToRun = millis()+DUREE_WAIT_TO_RUN_PAMI;
+  timeOutGeneral = millis()+DUREE_WAIT_TO_RUN_PAMI+TIME_OUT_RUN;
 
-  // On configure les moteurs
+  // On arrete les moteurs
   stopRun();
-  pami.moteur.setPwmMode(false); 
 
   // On configure les GPIO
   if( team == PAMI_TEAM_A ) {
@@ -110,7 +110,8 @@ void setup(void){
 
   // On initialise le gyroscope
   pami.gyro.begin();
-  pami.gyro.selectAxis(GYROSCOPE_AXIS_X);
+  pami.gyro.selectAxis(GYROSCOPE_AXIS_Y);
+  pami.gyro.setUpdatePeriod(100);
   // pami.gyro.display(true);
 
   // On initialise l'ultrason
@@ -126,7 +127,8 @@ void setup(void){
 
 
 void loop(void){
-   displayStatus(); // On affiche le Status sur la console pour le debug
+
+  displayStatus(); // On affiche le Status sur la console pour le debug
 
   // En fonction du status, on appelle la fonction correspondant à l'étape
   switch( statusPami ) {
@@ -142,7 +144,6 @@ void loop(void){
 
   gestionTambours();
   gestionDisplay();
-  gestionRun();
   pami.gestion(); 
 }
 
@@ -154,7 +155,7 @@ void switchToWaitToRun()       { statusPami = PAMI_WAIT_TO_RUN;      endStatusTi
 void switchToOnRoad()          { statusPami = PAMI_ON_ROAD;   }
 void switchToGoUp()            { statusPami = PAMI_GO_UP;     }
 void switchToTurn()            { statusPami = PAMI_TURN;      }
-void switchToTWaitEdge()       { statusPami = PAMI_WAIT_EDGE; }
+void switchToWaitEdge()        { statusPami = PAMI_WAIT_EDGE; }
 void switchToArrived()         { statusPami = PAMI_ARRIVED;   }
 
 
@@ -180,7 +181,6 @@ void pamiSayReadyToRun(void) {
 // Dans cette étape, le PAMI attends la fin de la manche pour partir
 void pamiWaitToRun() {
   if( dureeWaitToRun < millis()) {
-    runPami = true;
     pami.afficheur.displayString(" Go ");
     switchToOnRoad();
   }
@@ -189,84 +189,127 @@ void pamiWaitToRun() {
 
 // Dans cette étape, le PAMI commence son périple et attends d'atteindre la pente
 void pamiOnRoad() {
+  int angleX;
+  int angleY=0;
+  unsigned char vitesseGauche;
+  unsigned char vitesseDroite;
 
-// static unsigned long nextT = millis()+4000;
-// if( millis() < nextT) return;
-// pami.moteur.moteurDroit(0);
-// pami.moteur.moteurGauche(0);
-// return;
+  pami.gyro.setUpdatePeriod(80);
 
-  static unsigned long nextTime = millis()+PERIOD_GESTION_MONTEE;
-
-  // On ne gére l'axe Z que toutes les PERIOD_GESTION_MONTEE ms
-  if( millis() < nextTime) return;
-  while( nextTime <= millis() ) nextTime += PERIOD_GESTION_MONTEE;
-
-  if( pami.gyro.getAngle(GYROSCOPE_AXIS_Y) < -5 ) {
-    pami.afficheur.displayString(" Up ");
-    switchToGoUp();
+  while(angleY > -5) {
+    vitesseGauche = VITESSE_MOTEUR_RAPIDE;
+    vitesseDroite = VITESSE_MOTEUR_RAPIDE;
+    angleX = pami.gyro.getAngle(GYROSCOPE_AXIS_X);
+    if( angleX > 0 ) {
+      vitesseDroite += 1;
+      vitesseGauche -= 1;
+    }
+    if( angleX < 0 ) {
+      vitesseDroite -= 1;
+      vitesseGauche += 1;
+    }
+    gestionRun(vitesseGauche,vitesseDroite);
+    pami.gestion();
+    angleY = pami.gyro.getAngle(GYROSCOPE_AXIS_Y);
+    if( gestionTimeOut() == true) return;
   }
+
+  stopRun();
+  switchToGoUp();
 }
 
 
 // Dans cette étape, le PAMI monte la pente et attends d'être sur le podium
 void pamiGoUp() {
-  static unsigned long nextTime = millis()+PERIOD_GESTION_MONTEE;
+  int angleX;
+  int angleY=-10;
+  unsigned char vitesseGauche;
+  unsigned char vitesseDroite;
 
-  // On ne gére l'axe Z que toutes les PERIOD_GESTION_MONTEE ms
-  if( millis() < nextTime) return;
-  while( nextTime <= millis() ) nextTime += PERIOD_GESTION_MONTEE;
+  pami.gyro.setUpdatePeriod(80);
 
-  if( pami.gyro.getAngle(GYROSCOPE_AXIS_Y) > -2  ) {
-    pami.afficheur.displayString("Turn");
-    switchToTurn();
+  while(angleY < -2) {
+    vitesseGauche = VITESSE_MOTEUR_RAPIDE;
+    vitesseDroite = VITESSE_MOTEUR_RAPIDE;
+    angleX = pami.gyro.getAngle(GYROSCOPE_AXIS_X);
+    if( angleX > 0 ) {
+      vitesseDroite += 1;
+      vitesseGauche -= 1;
+    }
+    if( angleX < 0 ) {
+      vitesseDroite -= 1;
+      vitesseGauche += 1;
+    }
+    gestionRun(vitesseGauche,vitesseDroite);
+    pami.gestion();
+    angleY = pami.gyro.getAngle(GYROSCOPE_AXIS_Y);
+    if( gestionTimeOut() == true) return;
   }
+
+  stopRun();
+  switchToTurn();
 }
 
 
 // Dans cette étape, le PAMI se tourne vers les spectateurs
 void pamiTurn() {
+  unsigned char vitesseGauche = VITESSE_MOTEUR_RAPIDE;
+  unsigned char vitesseDroite = VITESSE_MOTEUR_RAPIDE;
 
-  runPami = false; // Dans cette étape, on suspend la régulation sur angle
+  pami.gyro.setUpdatePeriod(50);
 
   if( directionVirage == PAMI_TOURNE_A_GAUCHE ) {
-    setMoteurDroit(40);
-    setMoteurGauche(20);
+    vitesseGauche = vitesseGauche - 4;
     angleToRun = -90;
   } else {
-    setMoteurDroit(20);
-    setMoteurGauche(40);
+    vitesseDroite = vitesseDroite - 4;
     angleToRun = 90;
   }
 
   if( directionVirage == PAMI_TOURNE_A_GAUCHE ) {
-    while( pami.gyro.getAngle(GYROSCOPE_AXIS_X) > (angleToRun+15) ) pami.gestion();
+    while( pami.gyro.getAngle(GYROSCOPE_AXIS_X) > (angleToRun+25) ) {
+      gestionRun(vitesseGauche,vitesseDroite);
+      pami.gestion();
+      if( gestionTimeOut() == true) return;
+    }
   } else {
-    while( pami.gyro.getAngle(GYROSCOPE_AXIS_X) < (angleToRun-15) ) pami.gestion();
+    while( pami.gyro.getAngle(GYROSCOPE_AXIS_X) < (angleToRun-25) ) {
+      gestionRun(vitesseGauche,vitesseDroite);
+      pami.gestion();
+      if( gestionTimeOut() == true) return;
+    }
   }
 
-//  vitesseMoteurDefaut = 20; // On avance tres doucement sur le bord
-  switchToTWaitEdge();
+  stopRun();
+  switchToWaitEdge();
 }
 
 
 // Dans cette étape, le PAMI attends d'être au bord
 void pamiWaitEdge() {
-  unsigned short distance = 400; // 400 pour forcer a entrer dans la boucle
+  unsigned char vitesseGauche;
+  unsigned char vitesseDroite;
+  unsigned short distance = 500;
+  int angle;
 
-  // runPami = true;  // On redémarre la régulation
-  setMoteurDroit(20);
-  setMoteurGauche(20);
+  while( ( distance > 400 ) || (distance < ULTRASON_SEUIL_SCENE) ) {
+    vitesseGauche = VITESSE_MOTEUR_LENTE;
+    vitesseDroite = VITESSE_MOTEUR_LENTE;
 
-  while( (distance >= 400) || (distance < ULTRASON_SEUIL_SCENE ) ) {
-    distance = pami.ultrason.getDistance();
-    // if( (distance < 400) && (distance > ULTRASON_SEUIL_SCENE ) ) break;
-    // gestionRun();
+    if( angle > angleToRun ) vitesseGauche -= 1;
+    if( angle < angleToRun ) vitesseDroite -= 1;
+    
+    gestionRun(vitesseGauche,vitesseDroite);
+
+    if( gestionTimeOut() == true) return;
+
     pami.gestion();
+    angle = pami.gyro.getAngle(GYROSCOPE_AXIS_X);
+    distance = pami.ultrason.getDistance();
   }
 
+// pami.afficheur.displayValue(distance);
   stopRun();
-  runPami = false;
   switchToArrived();
 }
 
@@ -329,7 +372,7 @@ void gestionDisplay( void ) {
 
   switch(index) {
     case 0: pami.afficheur.displayString("O  O"); index += 1; break;
-    case 1: pami.afficheur.displayString("o  O"); index += 1; break;
+    case 1: pami.afficheur.displayString("-  O"); index += 1; break;
     case 2: pami.afficheur.displayString("O  O"); index += 1; break;
     case 3: pami.afficheur.displayString("-  O"); index  = 0; break;
   }
@@ -337,34 +380,15 @@ void gestionDisplay( void ) {
 }
 
 
-// Cette routine permet de gérer le run du PAMI
-void gestionRun() {
-  static unsigned long  nextTime = millis()+PERIOD_GESTION_DIRECTION;
-  int  anglePami;
-  char vitesseDroite = vitesseMoteurDefaut;
-  char vitesseGauche = vitesseMoteurDefaut;
-
-  // On ne gére les moteurs que toutes les PERIOD_GESTION_DIRECTION ms
-  if( millis() < nextTime) return;
-  while( nextTime <= millis() ) nextTime += PERIOD_GESTION_DIRECTION;
-
-  if( !runPami ) {
-    // setMoteurDroit(0);
-    // setMoteurGauche(0);
-    return;
-  }
-
-  anglePami = pami.gyro.getAngle(GYROSCOPE_AXIS_X);
-
-  if( anglePami > 0 ) {
-    vitesseDroite += 20;
-  }
-  if( anglePami < 0 ) {
-    vitesseDroite -= 20;
-  }
-
-  setMoteurDroit(vitesseDroite);
-  setMoteurGauche(vitesseGauche);
+void gestionRun(unsigned char vitesseGauche,unsigned char vitesseDroite) {
+    int i=10;
+    while(i-->0) {
+      setMoteurDroit (vitesseDroite>0?100:0);
+      setMoteurGauche(vitesseGauche>0?100:0);
+      if( vitesseDroite>0 ) vitesseDroite--;
+      if( vitesseGauche>0 ) vitesseGauche--;
+      delayMicroseconds(500);
+    }
 }
 
 
@@ -386,6 +410,15 @@ void displayStatus( void ) {
   }
   lastDisplayStatus = statusPami;
 }  
+
+
+// Gestion d'un time out général de (DUREE_WAIT_TO_RUN_PAMI+TIME_OUT_RUN) ms
+bool gestionTimeOut(void) {
+  if( timeOutGeneral > millis() ) return false;
+  stopRun();
+  switchToArrived();
+  return true;
+}
 
 
 // Ces fonctions permettent d'éviter de recabler le moteur
