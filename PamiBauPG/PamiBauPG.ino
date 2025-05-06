@@ -3,7 +3,7 @@
 #include "LibPami.h"
 // #include "MemoryFree.h"
 
-// #define DEBUG_PAMI
+#define DEBUG_PAMI
 
 #ifndef DEBUG_PAMI
 //============= REGLAGE PAMI CONCOURS =========================
@@ -20,9 +20,12 @@
 #endif
 
 // Durée de run des Pamis de la team A => Boule
-#define DUREE_RUN_PAMI1_TEAM_A  4700   // Durée de mouvement pour le PAMI 1 (en ms)
-#define DUREE_RUN_PAMI2_TEAM_A  3700   // Durée de mouvement pour le PAMI 2 (en ms)
-#define DUREE_RUN_PAMI3_TEAM_A  2700   // Durée de mouvement pour le PAMI 3 (en ms)
+// #define DUREE_RUN_PAMI1_TEAM_A  4700   // Durée de mouvement pour le PAMI 1 (en ms)
+// #define DUREE_RUN_PAMI2_TEAM_A  3700   // Durée de mouvement pour le PAMI 2 (en ms)
+// #define DUREE_RUN_PAMI3_TEAM_A  2700   // Durée de mouvement pour le PAMI 3 (en ms)
+#define DUREE_RUN_PAMI1_TEAM_A  3900   // Durée de mouvement pour le PAMI 1 (en ms)
+#define DUREE_RUN_PAMI2_TEAM_A  3500   // Durée de mouvement pour le PAMI 2 (en ms)
+#define DUREE_RUN_PAMI3_TEAM_A  2500   // Durée de mouvement pour le PAMI 3 (en ms)
 
 // Durée de run des Pamis de la team B => Bras
 #define DUREE_RUN_PAMI1_TEAM_B  4500   // Durée de mouvement pour le PAMI 1 (en ms)

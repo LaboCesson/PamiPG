@@ -3,7 +3,7 @@
 #include "LibPami.h"
 // #include "MemoryFree.h"
 
-#define DEBUG_PAMI
+// #define DEBUG_PAMI
 
 #ifndef DEBUG_PAMI
 //============= REGLAGE PAMI CONCOURS =========================
@@ -25,7 +25,7 @@ unsigned char directionVirage;
 #define GPIO_TAMBOUR_GAUCHE    PAMI_GPIO_4 
 #define GPIO_TAMBOUR_DROIT     PAMI_GPIO_3
 #define DEFAULT_TAMBOUR_ANGLE  90    // L'angle au repos en degré des bras
-#define MAX_TAMBOUR_ANGLE      10    // Angle maximum de déplacement d'un bras
+#define MAX_TAMBOUR_ANGLE      30    // Angle maximum de déplacement d'un bras
 #define PERIOD_GESTION_TAMBOUR 200   // Période de battement sur le tambour en ms
 
 bool flagActivity = false; // Indique si l'activité Tambour ou Display doit être activée
@@ -86,7 +86,7 @@ void setup(void){
   Serial.println("PAMI Singer controlé par BAU");
 
   // pami.gpio.setDebug(true);
-  pami.radio.setDebug(true);
+  // pami.radio.setDebug(true);
 
   // On initialise la team
   team = pami.jumper.getTeam();
@@ -129,9 +129,6 @@ void setup(void){
 
 void loop(void){
 
-
-
-return;
   displayStatus(); // On affiche le Status sur la console pour le debug
 
   // En fonction du status, on appelle la fonction correspondant à l'étape
@@ -186,8 +183,8 @@ void pamiSayReadyToRun(void) {
 void pamiWaitToRun() {
   if( dureeWaitToRun < millis()) {
     pami.afficheur.displayString(" Go ");
-// switchToTurn();
-// return;
+switchToGoUp();
+return;
 
     switchToOnRoad();
   }
@@ -229,13 +226,15 @@ void pamiOnRoad() {
 // Dans cette étape, le PAMI monte la pente et attends d'être sur le podium
 void pamiGoUp() {
   int angleX;
-  int angleY=-10;
+  int angleY=0;
   unsigned char vitesseGauche;
   unsigned char vitesseDroite;
 
   pami.gyro.setUpdatePeriod(80);
 
-  while(angleY < -2) {
+  // while(angleY < -2) {
+  while((angleY) < 3) {
+// Serial.println(angleY);
     vitesseGauche = VITESSE_MOTEUR_RAPIDE;
     vitesseDroite = VITESSE_MOTEUR_RAPIDE;
     angleX = pami.gyro.getAngle(GYROSCOPE_AXIS_X);
@@ -349,10 +348,10 @@ void gestionTambours( void ) {
 
   if( lastValue == 0) {
     pami.gpio.set(GPIO_TAMBOUR_GAUCHE,DEFAULT_TAMBOUR_ANGLE);
-    pami.gpio.set(GPIO_TAMBOUR_DROIT,DEFAULT_TAMBOUR_ANGLE-MAX_TAMBOUR_ANGLE);
+    pami.gpio.set(GPIO_TAMBOUR_DROIT,DEFAULT_TAMBOUR_ANGLE-20);
     lastValue = 1;
   } else {
-    pami.gpio.set(GPIO_TAMBOUR_GAUCHE,DEFAULT_TAMBOUR_ANGLE+MAX_TAMBOUR_ANGLE);
+    pami.gpio.set(GPIO_TAMBOUR_GAUCHE,DEFAULT_TAMBOUR_ANGLE+20);
     pami.gpio.set(GPIO_TAMBOUR_DROIT,DEFAULT_TAMBOUR_ANGLE);
     lastValue = 0;
   }

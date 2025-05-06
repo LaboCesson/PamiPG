@@ -30,6 +30,13 @@ unsigned char directionVirage;
 
 bool flagActivity = false; // Indique si l'activité Tambour ou Display doit être activée
 
+// Gestion de la radio
+typedef enum {
+  RADIO_NO_ORDER = 0, ///< Aucun message de reçu
+  RADIO_START    = 1, ///< Message de départ
+  RADIO_STOP     = 2, ///< Message d'arrêt
+} t_radioOrder;
+
 // Gestion des moteurs
 // #define VITESSE_MOTEUR_RAPIDE 8
 // #define VITESSE_MOTEUR_LENTE  5
@@ -47,7 +54,7 @@ int angleToRun = 0;     // Angle que doit gérer l'asservissement du run
 
 // Gestion du gyroscope
 #define TIME_BEFORE_RECALIBRAGE  2000 // Temps d'attente avant recalibrage en ms
-
+bool calibrationDone;
 // Gestion de l'ultrason
 #define ULTRASON_MAX_DISTANCE   500  // Distance maximum à détecter
 #define ULTRASON_SEUIL_SCENE     70  // Seuil de détection du bord de scene
@@ -58,22 +65,24 @@ int angleToRun = 0;     // Angle que doit gérer l'asservissement du run
 // Gestion des états du PAMI
 // Chaque état correspond à une étape du PAMI
 typedef enum {
-  PAMI_WAIT_RECALIBRAGE = 0, // Le PAMI attente quelques secondes pour se recalibrer
-  PAMI_SAY_READY_TO_RUN = 1, // Le PAMI dit qu'il est pret après recalibrage
-  PAMI_WAIT_TO_RUN      = 2, // Le PAMI attends pour partir
-  PAMI_ON_ROAD          = 3, // Le PAMI est en route
-  PAMI_GO_UP            = 4, // Le PAMI monte la pente
-  PAMI_TURN             = 5, // Le PAMI tourne
-  PAMI_WAIT_EDGE        = 6, // Le PAMI attends d'être au bord de la scene
-  PAMI_ARRIVED          = 7  // Le PAMI est arrivé => Il tape sur des tambours
+  PAMI_SAY_OK_INIT  = 1, // Le PAMI indique qu'il est initialisé
+  PAMI_WAIT_ORDER   = 2, // Le PAMI attends un message radio pour partir
+  PAMI_SAY_OK_START = 3, // Le PAMI indique avoir reçu l'ordre de départ
+  PAMI_WAIT_TO_RUN  = 4, // LE PAMI attends avant de partir
+  PAMI_ON_ROAD      = 5, // Le PAMI est en route
+  PAMI_GO_UP        = 6, // Le PAMI monte la pente
+  PAMI_TURN         = 7, // Le PAMI tourne
+  PAMI_WAIT_EDGE    = 8, // Le PAMI attends d'être au bord de la scene
+  PAMI_ARRIVED      = 9  // Le PAMI est arrivé => Il tape sur des tambours
 } t_statusPami;
-t_statusPami statusPami = PAMI_WAIT_RECALIBRAGE;
+t_statusPami statusPami = PAMI_SAY_OK_INIT;
 
-#define DUREE_SAY_READY_TO_RUN  1000 // Durée de battement des bras pour acquitter son initialisation (en ms)
-#define TIME_OUT_RUN           12000 // Durée du run apres laquelle le robot basculera sur le status PAMI_ARRIVED
+#define DUREE_SAY_OK_INIT  1000 // Durée de l'activité pour acquitter son initialisation (en ms)
+#define DUREE_SAY_OK_START 2000 // Durée de l'activité pour acquitter la réception d'un ordre (en ms)
+#define TIME_OUT_RUN      12000 // Durée du run apres laquelle le robot basculera sur le status PAMI_ARRIVED
 
-unsigned long dureeWaitToRun; // Temps d'attente avant de démarrer le parcours
 unsigned long endStatusTime;  // Fin d'un état en cours avant passage vers le suivant
+unsigned long dureeWaitToRun; // Temps d'attente avant de démarrer le parcours
 unsigned long timeOutGeneral; // Arret general apres TIME_OUT_GENERAL ms
 
 
@@ -83,7 +92,7 @@ void setup(void){
   pami.afficheur.begin();
   pami.afficheur.displayString("init");
 
-  Serial.println("PAMI Singer controlé par BAU");
+  Serial.println("PAMI Singer controlé par Radio");
 
   // pami.gpio.setDebug(true);
   pami.radio.setDebug(true);
@@ -99,13 +108,18 @@ void setup(void){
   // On arrete les moteurs
   stopRun();
 
+  // On configure la radio
+  pami.radio.begin(16);
+
   // On configure les GPIO
   if( team == PAMI_TEAM_A ) {
     pami.gpio.configure(GPIO_TAMBOUR_GAUCHE, PAMI_GPIO_PWM, DEFAULT_TAMBOUR_ANGLE);
     pami.gpio.configure(GPIO_TAMBOUR_DROIT,  PAMI_GPIO_PWM, DEFAULT_TAMBOUR_ANGLE);
     pami.gpio.configure(GPIO_DIRECTION, PAMI_GPIO_INPUT, 0);
   } else {
-    // TODO
+    pami.gpio.configure(GPIO_TAMBOUR_GAUCHE, PAMI_GPIO_PWM, DEFAULT_TAMBOUR_ANGLE);
+    pami.gpio.configure(GPIO_TAMBOUR_DROIT,  PAMI_GPIO_PWM, DEFAULT_TAMBOUR_ANGLE);
+    pami.gpio.configure(GPIO_DIRECTION, PAMI_GPIO_INPUT, 0);
   }
   directionVirage = pami.gpio.get(GPIO_DIRECTION);
 
@@ -113,6 +127,7 @@ void setup(void){
   pami.gyro.begin();
   pami.gyro.selectAxis(GYROSCOPE_AXIS_Y);
   pami.gyro.setUpdatePeriod(100);
+  calibrationDone = false;
   // pami.gyro.display(true);
 
   // On initialise l'ultrason
@@ -123,27 +138,24 @@ void setup(void){
   pami.afficheur.displayString("Pret");
 
   // On lance le PAMI vers sa première étape
-  switchToWaitRecalibrage();
+  switchToSayOkInit();
 }
 
 
 void loop(void){
-
-
-
-return;
   displayStatus(); // On affiche le Status sur la console pour le debug
 
   // En fonction du status, on appelle la fonction correspondant à l'étape
   switch( statusPami ) {
-    case PAMI_WAIT_RECALIBRAGE : pamiWaitRecalibrage(); break;
-    case PAMI_SAY_READY_TO_RUN : pamiSayReadyToRun();   break; 
-    case PAMI_WAIT_TO_RUN      : pamiWaitToRun();       break; 
-    case PAMI_ON_ROAD          : pamiOnRoad();          break; 
-    case PAMI_GO_UP            : pamiGoUp();            break; 
-    case PAMI_TURN             : pamiTurn();            break; 
-    case PAMI_WAIT_EDGE        : pamiWaitEdge();        break; 
-    case PAMI_ARRIVED          : pamiArrived();         break; 
+    case PAMI_SAY_OK_INIT  : pamiSayOkInit();   break; 
+    case PAMI_WAIT_ORDER   : pamiWaitOrder();   break; 
+    case PAMI_SAY_OK_START : pamiSayOkStart();  break; 
+    case PAMI_WAIT_TO_RUN  : pamiWaitToRun();   break; 
+    case PAMI_ON_ROAD      : pamiOnRoad();      break; 
+    case PAMI_GO_UP        : pamiGoUp();        break; 
+    case PAMI_TURN         : pamiTurn();        break; 
+    case PAMI_WAIT_EDGE    : pamiWaitEdge();    break; 
+    case PAMI_ARRIVED      : pamiArrived();     break; 
   }
 
   gestionTambours();
@@ -153,29 +165,43 @@ return;
 
 
 // Les routines suivantes sont appelées pour passer à une autre étape
-void switchToWaitRecalibrage() { statusPami = PAMI_WAIT_RECALIBRAGE; endStatusTime = millis()+TIME_BEFORE_RECALIBRAGE; }
-void switchToSayReadyToRun()   { statusPami = PAMI_SAY_READY_TO_RUN; endStatusTime = millis()+DUREE_SAY_READY_TO_RUN;  }
-void switchToWaitToRun()       { statusPami = PAMI_WAIT_TO_RUN;      endStatusTime = millis()+dureeWaitToRun;  }
-void switchToOnRoad()          { statusPami = PAMI_ON_ROAD;   }
-void switchToGoUp()            { statusPami = PAMI_GO_UP;     }
-void switchToTurn()            { statusPami = PAMI_TURN;      }
-void switchToWaitEdge()        { statusPami = PAMI_WAIT_EDGE; }
-void switchToArrived()         { statusPami = PAMI_ARRIVED;   }
+void switchToSayOkInit()   { statusPami = PAMI_SAY_OK_INIT;
+                             endStatusTime = millis()+DUREE_SAY_OK_INIT;  }
+void switchToWaitOrder()   { statusPami = PAMI_WAIT_ORDER;  }
+void switchToSayOkStart()  { statusPami = PAMI_SAY_OK_START; 
+                             endStatusTime  = millis()+DUREE_SAY_OK_START;
+                             dureeWaitToRun = millis()+DUREE_WAIT_TO_RUN_PAMI;
+                             timeOutGeneral = millis()+DUREE_WAIT_TO_RUN_PAMI+TIME_OUT_RUN; }
+void switchToWaitToRun()   { statusPami = PAMI_WAIT_TO_RUN; }
+void switchToOnRoad()      { statusPami = PAMI_ON_ROAD;     }
+void switchToGoUp()        { statusPami = PAMI_GO_UP;       }
+void switchToTurn()        { statusPami = PAMI_TURN;        }
+void switchToWaitEdge()    { statusPami = PAMI_WAIT_EDGE;   }
+void switchToArrived()     { statusPami = PAMI_ARRIVED;     }
 
 
-// Dans cette étape, le PAMI attends quelques secondes avant de faire un recalibrage
-void pamiWaitRecalibrage(void) {
+// Dans cette étape, le PAMI indique qu'il est initialisé
+void pamiSayOkInit(void) {
+  flagActivity = true;
   if( endStatusTime < millis()) {
-    pami.gyro.calibrate();
-    flagActivity = true;
-    switchToSayReadyToRun();
+    flagActivity = false;
+    switchToWaitOrder();
   }
 }
 
 
-// Dans cette étape, le PAMI indique que le recalibrage est terminé
-void pamiSayReadyToRun(void) {
-  if( endStatusTime < millis()) {
+// Dans cette étape, le PAMI attends un ordre radio de départ
+void pamiWaitOrder(void) {
+  if( gestionRadio() == RADIO_START ) {
+    switchToSayOkStart();
+  }
+}
+
+
+// Dans cette étape, le PAMI indique qu'il a recu un ordre de départ
+void pamiSayOkStart(void) {
+  flagActivity = true;
+  if( endStatusTime < millis()) { 
     flagActivity = false;
     switchToWaitToRun();
   }
@@ -184,11 +210,13 @@ void pamiSayReadyToRun(void) {
 
 // Dans cette étape, le PAMI attends la fin de la manche pour partir
 void pamiWaitToRun() {
+  if( calibrationDone == false ) {
+    pami.gyro.calibrate();
+    calibrationDone = true; 
+  }
+
   if( dureeWaitToRun < millis()) {
     pami.afficheur.displayString(" Go ");
-// switchToTurn();
-// return;
-
     switchToOnRoad();
   }
 }
@@ -203,7 +231,7 @@ void pamiOnRoad() {
 
   pami.gyro.setUpdatePeriod(80);
 
-  while(angleY > -5) {
+  while(angleY < 5) {
     vitesseGauche = VITESSE_MOTEUR_RAPIDE;
     vitesseDroite = VITESSE_MOTEUR_RAPIDE;
     angleX = pami.gyro.getAngle(GYROSCOPE_AXIS_X);
@@ -327,6 +355,22 @@ void pamiArrived() {
 }
 
 
+// Cette routine permet de tester si un ordre radio est arrivé
+t_radioOrder gestionRadio( void ) {
+  #define RADIO_MSG_SIZE 40
+  char msg[RADIO_MSG_SIZE];
+
+  unsigned char len = pami.radio.getMessage(msg, RADIO_MSG_SIZE);
+
+  if( len == 0 )  return RADIO_NO_ORDER;
+  if( msg[0] != 'T' ) return RADIO_NO_ORDER;
+  if( msg[1] != ( team == PAMI_TEAM_A ? 'A' : 'B')) return RADIO_NO_ORDER;
+  if( msg[2] == 'G' ) return RADIO_START;
+  if( msg[2] == 'S' ) return RADIO_STOP;
+  return RADIO_NO_ORDER;
+}
+
+
 // Cette routine permet de gérer les tambours
 void gestionTambours( void ) {
   static short lastValue = 0;
@@ -406,17 +450,18 @@ void displayStatus( void ) {
   if( statusPami == lastDisplayStatus ) return;
 
   switch( statusPami ) {
-    case PAMI_WAIT_RECALIBRAGE : Serial.println(F("PAMI_WAIT_RECALIBRAGE")); break;
-    case PAMI_SAY_READY_TO_RUN : Serial.println(F("PAMI_SAY_READY_TO_RUN")); break; 
-    case PAMI_WAIT_TO_RUN      : Serial.println(F("PAMI_WAIT_TO_RUN"));      break; 
-    case PAMI_ON_ROAD          : Serial.println(F("PAMI_ON_ROAD"));          break; 
-    case PAMI_GO_UP            : Serial.println(F("PAMI_GO_UP"));            break; 
-    case PAMI_TURN             : Serial.println(F("PAMI_TURN"));             break; 
-    case PAMI_WAIT_EDGE        : Serial.println(F("PAMI_WAIT_EDGE"));        break; 
-    case PAMI_ARRIVED          : Serial.println(F("PAMI_ARRIVED"));          break; 
+    case PAMI_SAY_OK_INIT  : Serial.println(F("PAMI_SAY_OK_INIT"));  break;
+    case PAMI_WAIT_ORDER   : Serial.println(F("PAMI_WAIT_ORDER"));   break;
+    case PAMI_SAY_OK_START : Serial.println(F("PAMI_SAY_OK_START")); break;
+    case PAMI_WAIT_TO_RUN  : Serial.println(F("PAMI_WAIT_TO_RUN"));  break; 
+    case PAMI_ON_ROAD      : Serial.println(F("PAMI_ON_ROAD"));      break; 
+    case PAMI_GO_UP        : Serial.println(F("PAMI_GO_UP"));        break; 
+    case PAMI_TURN         : Serial.println(F("PAMI_TURN"));         break; 
+    case PAMI_WAIT_EDGE    : Serial.println(F("PAMI_WAIT_EDGE"));    break; 
+    case PAMI_ARRIVED      : Serial.println(F("PAMI_ARRIVED"));      break; 
   }
   lastDisplayStatus = statusPami;
-}  
+}
 
 
 // Gestion d'un time out général de (DUREE_WAIT_TO_RUN_PAMI+TIME_OUT_RUN) ms
