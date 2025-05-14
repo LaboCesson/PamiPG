@@ -13,22 +13,21 @@
 
 #else
 //============= REGLAGE PAMI DEBUG =========================
-#define DUREE_WAIT_TO_RUN_PAMI1  15000 // Durée d'attente avant de partir pour le PAMI 1 (en ms)
-#define DUREE_WAIT_TO_RUN_PAMI2  15000 // Durée d'attente avant de partir pour le PAMI 2 (en ms)
-#define DUREE_WAIT_TO_RUN_PAMI3  15000 // Durée d'attente avant de partir pour le PAMI 3 (en ms)
+#define DUREE_WAIT_TO_RUN_PAMI1  10000 // Durée d'attente avant de partir pour le PAMI 1 (en ms)
+#define DUREE_WAIT_TO_RUN_PAMI2  10000 // Durée d'attente avant de partir pour le PAMI 2 (en ms)
+#define DUREE_WAIT_TO_RUN_PAMI3  10000 // Durée d'attente avant de partir pour le PAMI 3 (en ms)
 
 #endif
 
 // Durée de run des Pamis de la team A => Boule
-#define DUREE_RUN_PAMI1_TEAM_A  3900   // Durée de mouvement pour le PAMI 1 (en ms)
-#define DUREE_RUN_PAMI2_TEAM_A  3500   // Durée de mouvement pour le PAMI 2 (en ms)
-#define DUREE_RUN_PAMI3_TEAM_A  2500   // Durée de mouvement pour le PAMI 3 (en ms)
+#define DUREE_RUN_PAMI1_TEAM_A  4400   // Durée de mouvement pour le PAMI 1 (en ms)
+#define DUREE_RUN_PAMI2_TEAM_A  3400   // Durée de mouvement pour le PAMI 2 (en ms)
+#define DUREE_RUN_PAMI3_TEAM_A  3000   // Durée de mouvement pour le PAMI 3 (en ms)
 
 // Durée de run des Pamis de la team B => Bras
-#define DUREE_RUN_PAMI1_TEAM_B  4500   // Durée de mouvement pour le PAMI 1 (en ms)
-//#define DUREE_RUN_PAMI2_TEAM_B  3000   // Durée de mouvement pour le PAMI 2 (en ms)
-#define DUREE_RUN_PAMI2_TEAM_B  113000   // Durée de mouvement pour le PAMI 2 (en ms)
-#define DUREE_RUN_PAMI3_TEAM_B  2500   // Durée de mouvement pour le PAMI 3 (en ms)
+#define DUREE_RUN_PAMI1_TEAM_B  4400   // Durée de mouvement pour le PAMI 1 (en ms)
+#define DUREE_RUN_PAMI2_TEAM_B  3600   // Durée de mouvement pour le PAMI 2 (en ms)
+#define DUREE_RUN_PAMI3_TEAM_B  3000   // Durée de mouvement pour le PAMI 3 (en ms)
 
 
 LibPami pami;
@@ -103,7 +102,7 @@ void setup(void){
 
   Serial.print("PAMI controlé par Radio");
 
-  pami.gpio.setDebug(true);
+  // pami.gpio.setDebug(true);
   // pami.radio.setDebug(true);
 
   // On initialise la team et le Pami

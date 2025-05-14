@@ -11,7 +11,7 @@
 
 #else
 //============= REGLAGE PAMI DEBUG =========================
-#define DUREE_WAIT_TO_RUN_PAMI  15000 // Durée d'attente avant de partir pour le PAMI Singer (en ms)
+#define DUREE_WAIT_TO_RUN_PAMI   8000 // Durée d'attente avant de partir pour le PAMI Singer (en ms)
 
 #endif
 
@@ -43,6 +43,7 @@ typedef enum {
 #define VITESSE_MOTEUR_RAPIDE 7
 // #define VITESSE_MOTEUR_LENTE  6
 #define VITESSE_MOTEUR_LENTE  7
+#define DELTA_VITESSE 2
 
 #define PAMI_TOURNE_A_GAUCHE  1  // Sur la scene le PAMI tourne à gauche
 #define PAMI_TOURNE_A_DROITE  0  // Sur la scene le PAMI tourne à droite
@@ -236,12 +237,12 @@ void pamiOnRoad() {
     vitesseDroite = VITESSE_MOTEUR_RAPIDE;
     angleX = pami.gyro.getAngle(GYROSCOPE_AXIS_X);
     if( angleX > 0 ) {
-      vitesseDroite += 1;
-      vitesseGauche -= 1;
+      vitesseDroite += DELTA_VITESSE;
+      vitesseGauche -= DELTA_VITESSE;
     }
     if( angleX < 0 ) {
-      vitesseDroite -= 1;
-      vitesseGauche += 1;
+      vitesseDroite -= DELTA_VITESSE;
+      vitesseGauche += DELTA_VITESSE;
     }
     gestionRun(vitesseGauche,vitesseDroite);
     pami.gestion();
@@ -268,12 +269,12 @@ void pamiGoUp() {
     vitesseDroite = VITESSE_MOTEUR_RAPIDE;
     angleX = pami.gyro.getAngle(GYROSCOPE_AXIS_X);
     if( angleX > 0 ) {
-      vitesseDroite += 1;
-      vitesseGauche -= 1;
+      vitesseDroite += DELTA_VITESSE;
+      vitesseGauche -= DELTA_VITESSE;
     }
     if( angleX < 0 ) {
-      vitesseDroite -= 1;
-      vitesseGauche += 1;
+      vitesseDroite -= DELTA_VITESSE;
+      vitesseGauche += DELTA_VITESSE;
     }
     gestionRun(vitesseGauche,vitesseDroite);
     pami.gestion();
