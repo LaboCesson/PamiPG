@@ -3,24 +3,24 @@
 #include "LibPami.h"
 // #include "MemoryFree.h"
 
-#define DEBUG_PAMI
+// #define DEBUG_PAMI
 
 #ifndef DEBUG_PAMI
 //============= REGLAGE PAMI CONCOURS =========================
 #define DUREE_WAIT_TO_RUN_PAMI1  85000 // Durée d'attente avant de partir pour le PAMI 1 (en ms)
-#define DUREE_WAIT_TO_RUN_PAMI2  85500 // Durée d'attente avant de partir pour le PAMI 2 (en ms)
-#define DUREE_WAIT_TO_RUN_PAMI3  86000 // Durée d'attente avant de partir pour le PAMI 3 (en ms)
+#define DUREE_WAIT_TO_RUN_PAMI2  86000 // Durée d'attente avant de partir pour le PAMI 2 (en ms)
+#define DUREE_WAIT_TO_RUN_PAMI3  87000 // Durée d'attente avant de partir pour le PAMI 3 (en ms)
 
 #else
 //============= REGLAGE PAMI DEBUG =========================
 #define DUREE_WAIT_TO_RUN_PAMI1  10000 // Durée d'attente avant de partir pour le PAMI 1 (en ms)
-#define DUREE_WAIT_TO_RUN_PAMI2  10000 // Durée d'attente avant de partir pour le PAMI 2 (en ms)
-#define DUREE_WAIT_TO_RUN_PAMI3  10000 // Durée d'attente avant de partir pour le PAMI 3 (en ms)
+#define DUREE_WAIT_TO_RUN_PAMI2  11000 // Durée d'attente avant de partir pour le PAMI 2 (en ms)
+#define DUREE_WAIT_TO_RUN_PAMI3  12000 // Durée d'attente avant de partir pour le PAMI 3 (en ms)
 
 #endif
 
 // Durée de run des Pamis de la team A => Boule
-#define DUREE_RUN_PAMI1_TEAM_A  4400   // Durée de mouvement pour le PAMI 1 (en ms)
+#define DUREE_RUN_PAMI1_TEAM_A  4200   // Durée de mouvement pour le PAMI 1 (en ms)
 #define DUREE_RUN_PAMI2_TEAM_A  3400   // Durée de mouvement pour le PAMI 2 (en ms)
 #define DUREE_RUN_PAMI3_TEAM_A  3000   // Durée de mouvement pour le PAMI 3 (en ms)
 
@@ -170,6 +170,13 @@ void setup(void){
 
 
 void loop(void){
+
+// Serial.println("Trace");
+// pami.gpio.set(gpioDirection, DEFAULT_DIRECTION_ANGLE+10);
+// delay(500);
+// pami.gpio.set(gpioDirection, DEFAULT_DIRECTION_ANGLE-10);
+// delay(500);
+// return;
 
    displayStatus(); // On affiche le Status sur la console pour le debug
 
@@ -354,8 +361,7 @@ void gestionRun() {
   if( !runPami ) return; 
   anglePami = pami.gyro.getAngle();
   // anglePwm = anglePami*2;
-  anglePwm = anglePami;
-
+  anglePwm = anglePami; 
   pami.gpio.set(gpioDirection, DEFAULT_DIRECTION_ANGLE+anglePwm);
 }
 
